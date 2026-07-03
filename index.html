@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#18161a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<title>Fletch</title>
+<style>
+  :root {
+    --bg: #18161a;
+    --surface: #201d22;
+    --surface-2: #262229;
+    --line: #34303a;
+    --ink: #e7e2d7;
+    --ink-dim: #a49b8c;
+    --ink-faint: #6d6558;
+    --spirit: #3fb8a6;
+    --spirit-dim: #2d8577;
+    --shot: #d95a4d;
+    --gold: #ffc83c;
+    --gold-dim: #b8892a;
+    --mono: "Menlo", "Consolas", monospace;
+    --sans: -apple-system, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --r-sm: 8px;
+    --r-md: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--sans); overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  input, button, textarea, select { font: inherit; color: inherit; }
+
+  /* header */
+  .top {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg); border-bottom: 1px solid var(--line);
+    padding: 14px 16px 12px; padding-top: calc(env(safe-area-inset-top) + 14px);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .top .brand { font-weight: 700; font-size: 17px; letter-spacing: -.01em; }
+  .top .brand .dot { color: var(--gold); }
+  .top .sub { color: var(--ink-faint); font-size: 12px; margin-left: auto; }
+  .top .back { background: none; border: none; color: var(--ink-dim); font-size: 24px; cursor: pointer; padding: 0 6px; margin-right: -6px; }
+
+  /* screens */
+  .screen { flex: 1; overflow-y: auto; padding: 12px 16px 32px; padding-bottom: calc(env(safe-area-inset-bottom) + 32px); }
+  .hidden { display: none !important; }
+
+  /* pairing */
+  .pair-wrap { min-height: 70vh; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+  .pair-wrap h1 { font-size: 24px; margin-bottom: 6px; font-weight: 700; }
+  .pair-wrap p { color: var(--ink-dim); margin-bottom: 24px; text-align: center; font-size: 14px; line-height: 1.5; max-width: 320px; }
+  .pair-wrap .code-in {
+    width: 100%; max-width: 300px; padding: 14px 16px;
+    background: var(--surface); color: var(--gold);
+    border: 1px solid var(--line); border-radius: var(--r-sm);
+    font-family: var(--mono); font-size: 18px; font-weight: 700;
+    text-align: center; letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .pair-wrap .code-in:focus { border-color: var(--gold-dim); outline: none; }
+  .pair-wrap .go {
+    margin-top: 14px; width: 100%; max-width: 300px;
+    padding: 14px; border: none; border-radius: var(--r-sm);
+    background: var(--spirit); color: #062720;
+    font-weight: 700; font-size: 15px; cursor: pointer;
+  }
+  .pair-wrap .go:disabled { opacity: .5; cursor: not-allowed; }
+  .pair-wrap .go:active { background: var(--spirit-dim); }
+  .pair-err { color: var(--shot); font-size: 13px; margin-top: 12px; min-height: 18px; text-align: center; }
+  .pair-hint { color: var(--ink-faint); font-size: 12px; margin-top: 20px; text-align: center; max-width: 300px; line-height: 1.5; }
+
+  /* home */
+  .meta-bar { display: flex; align-items: center; gap: 10px; padding: 4px 0 12px; color: var(--ink-faint); font-size: 12px; }
+  .meta-bar .refresh { margin-left: auto; background: none; border: 1px solid var(--line); color: var(--ink-dim); padding: 5px 10px; border-radius: var(--r-sm); font-size: 12px; cursor: pointer; }
+  .meta-bar .refresh:active { background: var(--surface); }
+  .meta-bar .refresh.spin { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+    padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .card:active { background: var(--surface-2); }
+  .card.fav { border-color: rgba(255,200,60,.45); background: linear-gradient(180deg, rgba(255,200,60,.06), var(--surface) 45%); }
+  .card .star { color: var(--gold); font-size: 16px; flex: none; }
+  .card .body { flex: 1; min-width: 0; }
+  .card .name { font-weight: 600; font-size: 14px; margin-bottom: 3px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+  .card .meta { color: var(--ink-faint); font-size: 12px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+  .card .price { text-align: right; font-family: var(--mono); font-weight: 700; font-size: 15px; flex: none; }
+  .card .price .p-val.down { color: var(--spirit); }
+  .card .price .p-val.up { color: var(--shot); }
+  .card .price .p-stock { display: block; color: var(--ink-faint); font-size: 11px; font-weight: 400; margin-top: 2px; }
+  .card .price .p-none { color: var(--ink-faint); font-size: 12px; font-weight: 400; }
+  .card .badges { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .card .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--ink-dim); background: var(--surface-2); }
+  .card .badge.warn { color: var(--gold); border-color: rgba(255,200,60,.35); }
+  .card .badge.danger { color: var(--shot); border-color: rgba(217,90,77,.35); }
+
+  .empty { color: var(--ink-faint); text-align: center; padding: 40px 20px; font-size: 14px; line-height: 1.5; }
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: var(--surface-2); color: var(--ink); padding: 10px 16px;
+    border: 1px solid var(--line); border-radius: var(--r-sm); font-size: 13px;
+    opacity: 0; transition: opacity .25s;
+    max-width: 90%; text-align: center;
+  }
+  .toast.on { opacity: 1; }
+  .toast.err { border-color: rgba(217,90,77,.5); color: var(--shot); }
+
+  /* detail */
+  .detail h1 { font-size: 18px; margin-bottom: 4px; font-weight: 700; line-height: 1.3; }
+  .detail .d-meta { color: var(--ink-dim); font-size: 12px; margin-bottom: 16px; }
+  .detail .kbig { font-family: var(--mono); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .detail .kbig.down { color: var(--spirit); }
+  .detail .kbig.up { color: var(--shot); }
+  .detail .kbig.none { color: var(--ink-faint); font-size: 20px; }
+  .detail .ksub { color: var(--ink-dim); font-size: 12px; margin-bottom: 20px; }
+
+  .chart-wrap {
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md);
+    padding: 14px; margin-bottom: 16px;
+  }
+  .chart-hdr { display: flex; align-items: center; margin-bottom: 8px; }
+  .chart-hdr .tt { font-size: 13px; color: var(--ink-dim); font-weight: 600; }
+  .chart-hdr .range { margin-left: auto; display: flex; gap: 2px; }
+  .chart-hdr .range button {
+    background: none; border: 1px solid var(--line); color: var(--ink-dim);
+    padding: 4px 8px; font-size: 11px; border-radius: 4px; cursor: pointer;
+  }
+  .chart-hdr .range button.on { background: var(--surface-2); color: var(--ink); border-color: var(--spirit-dim); }
+  .chart { width: 100%; height: 180px; display: block; }
+  .chart-empty { text-align: center; color: var(--ink-faint); font-size: 12px; padding: 60px 0; }
+
+  .info-block { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-md); padding: 14px; margin-bottom: 12px; }
+  .info-block .k { font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 6px; }
+  .info-block .v { font-size: 14px; }
+  .info-block .v .mono { font-family: var(--mono); }
+
+  .link-out {
+    display: block; text-align: center; padding: 12px;
+    color: var(--spirit); border: 1px solid var(--spirit-dim); border-radius: var(--r-sm);
+    background: rgba(63,184,166,.05); font-size: 13px; text-decoration: none; margin-top: 6px;
+  }
+  .link-out:active { background: rgba(63,184,166,.1); }
+  .link-out .arrow { margin-left: 4px; }
+
+  /* footer nav */
+  .footer {
+    padding: 12px 16px; padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+    color: var(--ink-faint); font-size: 11px; text-align: center;
+  }
+  .footer button {
+    background: none; border: none; color: var(--ink-dim); text-decoration: underline dotted;
+    cursor: pointer; font-size: 11px;
+  }
+</style>
+</head>
+<body>
+
+<div class="top" id="top">
+  <button class="back hidden" id="btn-back" title="Voltar">‹</button>
+  <div class="brand">Fletch<span class="dot"> ·</span></div>
+  <div class="sub" id="sub-info"></div>
+</div>
+
+<!-- Tela: pareamento -->
+<div class="screen" id="scr-pair">
+  <div class="pair-wrap">
+    <h1>Parear com o Fletch</h1>
+    <p>Abra o Fletch no seu computador, vá em Configurações e ligue "Sincronizar com a nuvem". Um código aparece pra você digitar aqui.</p>
+    <input class="code-in" id="pair-code" type="text" inputmode="text" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="FLETCH-XXXX" maxlength="11">
+    <button class="go" id="pair-go" disabled>Parear</button>
+    <div class="pair-err" id="pair-err"></div>
+    <div class="pair-hint">Cada código funciona uma vez só. Se falhar, gere um novo no Fletch do computador.</div>
+  </div>
+</div>
+
+<!-- Tela: lista -->
+<div class="screen hidden" id="scr-list">
+  <div class="meta-bar">
+    <span id="sync-info">—</span>
+    <button class="refresh" id="btn-refresh" title="Atualizar">↻</button>
+  </div>
+  <div id="items-container"></div>
+</div>
+
+<!-- Tela: detalhe -->
+<div class="screen hidden" id="scr-detail"></div>
+
+<div class="footer">
+  <button id="btn-unpair">Desparear (limpar dados locais)</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ============================================================================
+// CONFIG
+// ============================================================================
+const SUPABASE_URL = "https://tvkxqxvvxhiczmgcdhul.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR2a3hxeHZ2eGhpY3ptZ2NkaHVsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI3ODk2NTEsImV4cCI6MjA5ODM2NTY1MX0.1Wc9fxcagApIKP-cH78Xmh1kumZnX6dhvpCOzPpD7qA";
+
+// ============================================================================
+// IndexedDB simples (chave/valor)
+// ============================================================================
+const DB = {
+  db: null,
+  open() {
+    return new Promise((resolve, reject) => {
+      const r = indexedDB.open("fletch-pwa", 1);
+      r.onupgradeneeded = (e) => e.target.result.createObjectStore("kv");
+      r.onsuccess = () => { this.db = r.result; resolve(); };
+      r.onerror = () => reject(r.error);
+    });
+  },
+  get(key) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction("kv", "readonly");
+      const req = tx.objectStore("kv").get(key);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  },
+  set(key, val) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction("kv", "readwrite");
+      tx.objectStore("kv").put(val, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+  del(key) {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction("kv", "readwrite");
+      tx.objectStore("kv").delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+};
+
+// ============================================================================
+// RPC helper
+// ============================================================================
+async function rpc(fn, args) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": SUPABASE_ANON,
+      "Authorization": `Bearer ${SUPABASE_ANON}`,
+      "Prefer": "params=single-object"
+    },
+    body: JSON.stringify(args || {})
+  });
+  const txt = await r.text();
+  let body = null;
+  try { body = txt ? JSON.parse(txt) : null; } catch (e) { body = txt; }
+  if (!r.ok) {
+    const msg = (body && (body.message || body.error || body.hint)) || `HTTP ${r.status}`;
+    throw new Error(msg);
+  }
+  return body;
+}
+
+// ============================================================================
+// Utils
+// ============================================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
+
+function toast(msg, isErr) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.className = "toast on" + (isErr ? " err" : "");
+  clearTimeout(toast._to);
+  toast._to = setTimeout(() => t.className = "toast" + (isErr ? " err" : ""), 2500);
+}
+
+function fmtBRL(n) {
+  if (n == null || isNaN(n)) return "—";
+  return "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtRel(iso) {
+  if (!iso) return "";
+  const dt = new Date(iso);
+  const now = new Date();
+  const diffMs = now - dt;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "agora";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `há ${diffH}h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD < 30) return `há ${diffD} dia${diffD > 1 ? "s" : ""}`;
+  return dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+
+// ============================================================================
+// State
+// ============================================================================
+const state = {
+  vaultId: null,
+  items: [],
+  currentItemId: null,
+  historyRange: 90 // dias
+};
+
+// ============================================================================
+// UI: pareamento
+// ============================================================================
+function showPair() {
+  $("#scr-pair").classList.remove("hidden");
+  $("#scr-list").classList.add("hidden");
+  $("#scr-detail").classList.add("hidden");
+  $("#btn-back").classList.add("hidden");
+  $("#sub-info").textContent = "";
+  $("#pair-err").textContent = "";
+  $("#pair-code").value = "";
+  $("#pair-go").disabled = true;
+  $("#pair-code").focus();
+}
+
+$("#pair-code").addEventListener("input", (e) => {
+  let v = e.target.value.toUpperCase();
+  // Auto-formata: se digitou 6 chars sem hífen, insere; se apagou o hífen, remove.
+  v = v.replace(/[^A-Z0-9-]/g, "");
+  if (v.length > 0 && !v.startsWith("FLETCH")) {
+    // Aceita digitar só os 4 chars: prefixa
+    if (v.length <= 4 && /^[A-Z0-9]+$/.test(v)) {
+      v = "FLETCH-" + v;
+    }
+  }
+  if (v.length > 7 && v[6] !== "-") {
+    v = v.slice(0, 6) + "-" + v.slice(6);
+  }
+  e.target.value = v;
+  $("#pair-go").disabled = !/^FLETCH-[A-Z0-9]{4}$/.test(v);
+});
+
+$("#pair-go").addEventListener("click", async () => {
+  const code = $("#pair-code").value.trim().toUpperCase();
+  $("#pair-err").textContent = "";
+  $("#pair-go").disabled = true;
+  $("#pair-go").textContent = "Pareando…";
+  try {
+    const resp = await rpc("consume_pairing_code", { p_code: code });
+    const row = Array.isArray(resp) ? resp[0] : resp;
+    const vaultId = row && (row.vault_id || row.vaultid);
+    if (!vaultId) throw new Error("Resposta sem vault_id");
+    state.vaultId = vaultId;
+    await DB.set("vaultId", vaultId);
+    toast("Pareado! Carregando dados…");
+    await loadList(true);
+    showList();
+  } catch (e) {
+    let msg = e.message || String(e);
+    if (/code_expired_or_invalid/.test(msg)) msg = "Código expirado ou inválido. Gere um novo no Fletch do computador.";
+    else if (/code_invalid/.test(msg)) msg = "Código no formato errado.";
+    else if (/Failed to fetch|NetworkError/.test(msg)) msg = "Sem conexão. Verifique a internet.";
+    $("#pair-err").textContent = msg;
+    $("#pair-go").disabled = false;
+    $("#pair-go").textContent = "Parear";
+  }
+});
+
+// ============================================================================
+// UI: lista
+// ============================================================================
+function showList() {
+  $("#scr-pair").classList.add("hidden");
+  $("#scr-list").classList.remove("hidden");
+  $("#scr-detail").classList.add("hidden");
+  $("#btn-back").classList.add("hidden");
+  renderList();
+}
+
+async function loadList(silent) {
+  if (!silent) $("#btn-refresh").classList.add("spin");
+  try {
+    const rows = await rpc("get_vault_items", { p_vault_id: state.vaultId, p_include_paused: true });
+    state.items = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+    await DB.set("items", state.items);
+    await DB.set("itemsFetchedAt", new Date().toISOString());
+    renderList();
+  } catch (e) {
+    toast("Erro ao carregar: " + (e.message || e), true);
+    // Fallback ao cache local se tiver
+    const cached = await DB.get("items");
+    if (cached && !state.items.length) {
+      state.items = cached;
+      renderList();
+    }
+  } finally {
+    $("#btn-refresh").classList.remove("spin");
+  }
+}
+
+function renderList() {
+  const container = $("#items-container");
+  const info = $("#sync-info");
+  const items = state.items || [];
+
+  if (items.length === 0) {
+    container.innerHTML = '<div class="empty">Ainda sem items sincronizados.<br>Adicione items no Fletch do computador e faça uma captura.</div>';
+    info.textContent = "0 items";
+    return;
+  }
+
+  // Info da última sincronização
+  const lastCheck = items.reduce((max, it) => {
+    if (!it.last_checked_at) return max;
+    const t = new Date(it.last_checked_at);
+    return (!max || t > max) ? t : max;
+  }, null);
+  info.textContent = `${items.length} items · atualizado ${lastCheck ? fmtRel(lastCheck.toISOString()) : "—"}`;
+
+  container.innerHTML = items.map(renderCard).join("");
+  container.querySelectorAll(".card").forEach((el) => {
+    el.addEventListener("click", () => {
+      const id = el.getAttribute("data-id");
+      openDetail(id);
+    });
+  });
+}
+
+function renderCard(it) {
+  const isFav = !!it.favorite;
+  const star = isFav ? '<span class="star">★</span>' : "";
+  const cls = "card" + (isFav ? " fav" : "");
+  const priceStr = it.last_price != null ? fmtBRL(it.last_price) : '<span class="p-none">sem preço</span>';
+  const stockLine = it.last_stock != null && it.last_stock >= 0 ? `<span class="p-stock">${it.last_stock} un.</span>` : "";
+  const badges = [];
+  if (it.state === "desafio") badges.push('<span class="badge warn">verificação pendente</span>');
+  else if (it.state === "erro") badges.push('<span class="badge danger">falha</span>');
+  else if (it.state === "esgotado") badges.push('<span class="badge">esgotado</span>');
+  else if (it.state === "indisponivel") badges.push('<span class="badge">sem preço</span>');
+  if (it.card_quality_found) badges.push(`<span class="badge">${esc(it.card_quality_found)}</span>`);
+  if (it.paused) badges.push('<span class="badge">pausado</span>');
+
+  return `
+    <div class="${cls}" data-id="${esc(it.id)}">
+      ${star}
+      <div class="body">
+        <div class="name">${esc(it.product_name || it.url || "—")}</div>
+        <div class="meta">${esc(it.store_name || "")}${it.last_checked_at ? " · " + fmtRel(it.last_checked_at) : ""}</div>
+        ${badges.length ? `<div class="badges">${badges.join("")}</div>` : ""}
+      </div>
+      <div class="price">
+        <span class="p-val">${priceStr}</span>
+        ${stockLine}
+      </div>
+    </div>`;
+}
+
+// ============================================================================
+// UI: detalhe
+// ============================================================================
+async function openDetail(itemId) {
+  const it = state.items.find((x) => x.id === itemId);
+  if (!it) return;
+  state.currentItemId = itemId;
+
+  $("#scr-pair").classList.add("hidden");
+  $("#scr-list").classList.add("hidden");
+  $("#scr-detail").classList.remove("hidden");
+  $("#btn-back").classList.remove("hidden");
+  $("#sub-info").textContent = "";
+
+  renderDetail(it, null); // gráfico vem depois
+
+  // Carregar histórico
+  try {
+    const rows = await rpc("get_history", { p_vault_id: state.vaultId, p_item_id: itemId, p_days: state.historyRange });
+    const points = Array.isArray(rows) ? rows : (rows ? [rows] : []);
+    renderDetail(it, points);
+  } catch (e) {
+    renderDetail(it, []);
+    toast("Sem histórico: " + (e.message || e), true);
+  }
+}
+
+function renderDetail(it, points) {
+  const isFav = !!it.favorite;
+  const priceStr = it.last_price != null ? fmtBRL(it.last_price) : '<span class="none">sem preço</span>';
+  const priceClass = "kbig" + (it.last_price != null ? "" : " none");
+  const min = it.min_ever && it.min_ever.price;
+  const max = it.max_ever && it.max_ever.price;
+
+  const badges = [];
+  if (isFav) badges.push('<span class="badge" style="color:var(--gold);border-color:rgba(255,200,60,.35)">★ favorito</span>');
+  if (it.state === "desafio") badges.push('<span class="badge warn">verificação pendente</span>');
+  if (it.card_quality_found) badges.push(`<span class="badge">qualidade ${esc(it.card_quality_found)}</span>`);
+  if (it.paused) badges.push('<span class="badge">pausado</span>');
+
+  const html = `
+    <div class="detail">
+      <h1>${esc(it.product_name || it.url || "—")}</h1>
+      <div class="d-meta">${esc(it.store_name || "")}${it.last_checked_at ? " · atualizado " + fmtRel(it.last_checked_at) : ""}</div>
+      ${badges.length ? `<div class="badges" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px">${badges.join("")}</div>` : ""}
+
+      <div class="${priceClass}">${priceStr}</div>
+      <div class="ksub">
+        ${it.last_stock != null ? esc(it.last_stock) + " un. em estoque" : ""}
+        ${it.seller_count ? " · " + esc(it.seller_count) + " vendedor(es)" : ""}
+      </div>
+
+      <div class="chart-wrap">
+        <div class="chart-hdr">
+          <div class="tt">Histórico de preço</div>
+          <div class="range">
+            <button data-r="7" ${state.historyRange === 7 ? "class='on'" : ""}>7d</button>
+            <button data-r="30" ${state.historyRange === 30 ? "class='on'" : ""}>30d</button>
+            <button data-r="90" ${state.historyRange === 90 ? "class='on'" : ""}>90d</button>
+            <button data-r="365" ${state.historyRange === 365 ? "class='on'" : ""}>1a</button>
+          </div>
+        </div>
+        ${points === null ? '<div class="chart-empty">carregando…</div>' : renderChart(points)}
+      </div>
+
+      ${(min != null || max != null) ? `
+        <div class="info-block">
+          <div class="k">extremos</div>
+          <div class="v">
+            <span class="mono">menor: ${min != null ? fmtBRL(min) : "—"}</span> ·
+            <span class="mono">maior: ${max != null ? fmtBRL(max) : "—"}</span>
+          </div>
+        </div>
+      ` : ""}
+
+      ${it.url ? `<a class="link-out" href="${esc(it.url)}" target="_blank" rel="noopener">Abrir na loja <span class="arrow">↗</span></a>` : ""}
+    </div>`;
+
+  $("#scr-detail").innerHTML = html;
+
+  // Ligar botões de range
+  $$("#scr-detail .range button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.historyRange = parseInt(btn.getAttribute("data-r"), 10);
+      openDetail(it.id);
+    });
+  });
+}
+
+// ============================================================================
+// Gráfico SVG simples
+// ============================================================================
+function renderChart(points) {
+  if (!points || !points.length) {
+    return '<div class="chart-empty">Sem histórico ainda pra esse período.</div>';
+  }
+  if (points.length === 1) {
+    return `<div class="chart-empty">Só um ponto até agora: <b>${fmtBRL(points[0].price)}</b></div>`;
+  }
+
+  const w = 320, h = 180, padL = 40, padR = 8, padT = 8, padB = 24;
+  const iw = w - padL - padR;
+  const ih = h - padT - padB;
+
+  const times = points.map(p => new Date(p.date).getTime());
+  const prices = points.map(p => Number(p.price));
+  const tMin = Math.min(...times), tMax = Math.max(...times);
+  const pMin = Math.min(...prices), pMax = Math.max(...prices);
+  const pad = (pMax - pMin) * 0.1 || 1;
+  const yMin = Math.max(0, pMin - pad);
+  const yMax = pMax + pad;
+
+  const x = (t) => padL + (iw * (t - tMin)) / Math.max(1, tMax - tMin);
+  const y = (p) => padT + ih - (ih * (p - yMin)) / Math.max(0.0001, yMax - yMin);
+
+  // Linha
+  const dLine = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(times[i]).toFixed(1)},${y(prices[i]).toFixed(1)}`).join("");
+
+  // Fill embaixo (área)
+  const dFill = dLine + ` L${x(times[times.length-1]).toFixed(1)},${(padT+ih).toFixed(1)} L${x(times[0]).toFixed(1)},${(padT+ih).toFixed(1)} Z`;
+
+  // Labels Y (3 níveis: min, meio, max)
+  const yLabels = [yMax, (yMax + yMin) / 2, yMin].map(v => `
+    <text x="${padL - 4}" y="${y(v)}" font-size="10" text-anchor="end" fill="#6d6558" alignment-baseline="middle">${fmtBRL(v).replace("R$ ", "")}</text>
+    <line x1="${padL}" y1="${y(v)}" x2="${w - padR}" y2="${y(v)}" stroke="#34303a" stroke-dasharray="2,3"/>
+  `).join("");
+
+  // Ponto inicial e final com valor
+  const firstP = points[0], lastP = points[points.length - 1];
+  const trendDown = lastP.price < firstP.price;
+  const trendColor = trendDown ? "#3fb8a6" : "#d95a4d";
+
+  return `
+    <svg class="chart" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet">
+      ${yLabels}
+      <path d="${dFill}" fill="${trendColor}" opacity="0.08"/>
+      <path d="${dLine}" fill="none" stroke="${trendColor}" stroke-width="1.5"/>
+      <circle cx="${x(times[times.length-1])}" cy="${y(prices[prices.length-1])}" r="3" fill="${trendColor}"/>
+      <text x="${x(times[0])}" y="${padT + ih + 14}" font-size="9" fill="#6d6558">${new Date(tMin).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })}</text>
+      <text x="${w - padR}" y="${padT + ih + 14}" font-size="9" fill="#6d6558" text-anchor="end">${new Date(tMax).toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit" })}</text>
+    </svg>`;
+}
+
+// ============================================================================
+// Botões globais
+// ============================================================================
+$("#btn-back").addEventListener("click", () => {
+  state.currentItemId = null;
+  showList();
+});
+
+$("#btn-refresh").addEventListener("click", () => loadList(false));
+
+$("#btn-unpair").addEventListener("click", async () => {
+  if (!confirm("Isso apaga o pareamento e o cache local. Vai precisar gerar novo código no Fletch.\n\nConfirmar?")) return;
+  await DB.del("vaultId");
+  await DB.del("items");
+  await DB.del("itemsFetchedAt");
+  state.vaultId = null;
+  state.items = [];
+  state.currentItemId = null;
+  showPair();
+});
+
+// ============================================================================
+// Init
+// ============================================================================
+async function boot() {
+  await DB.open();
+
+  // Registrar service worker
+  if ("serviceWorker" in navigator) {
+    try { await navigator.serviceWorker.register("sw.js"); } catch (e) { /* ok */ }
+  }
+
+  // Ver se já está pareado
+  const vaultId = await DB.get("vaultId");
+  if (vaultId) {
+    state.vaultId = vaultId;
+    // Carregar do cache imediato pra abrir rápido
+    const cached = await DB.get("items");
+    if (cached) {
+      state.items = cached;
+    }
+    showList();
+    // Refresh em background
+    loadList(true);
+  } else {
+    showPair();
+  }
+}
+
+boot().catch((e) => {
+  document.body.innerHTML = `<div class="empty" style="padding:60px 20px">Erro ao iniciar: ${esc(e.message || e)}</div>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "Fletch",
+  "short_name": "Fletch",
+  "description": "Preços de Pokémon TCG que você acompanha",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#18161a",
+  "theme_color": "#18161a",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

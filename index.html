@@ -165,6 +165,47 @@
   /* detail */
   .detail h1 { font-size: 18px; margin-bottom: 4px; font-weight: 700; line-height: 1.3; }
   .detail .d-meta { color: var(--ink-dim); font-size: 12px; margin-bottom: 16px; }
+
+  /* Imagem da carta */
+  .card-visual {
+    display: flex; justify-content: center; align-items: center;
+    margin: 12px auto 20px;
+    max-width: 320px; aspect-ratio: 63/88;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-md); overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,.3);
+  }
+  .card-visual img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .card-visual.placeholder { flex-direction: column; gap: 8px; color: var(--ink-faint); }
+  .card-visual.placeholder .ph-icon { font-size: 48px; color: var(--spirit-dim); }
+  .card-visual.placeholder .ph-txt { font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+  .card-visual.img-fail img { display: none; }
+  .card-visual.img-fail::after {
+    content: "imagem indisponível"; color: var(--ink-faint); font-size: 12px;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+
+  /* Bloco Info da carta */
+  .card-info-block {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-md); padding: 14px; margin: 16px 0;
+  }
+  .cib-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--ink-faint); margin-bottom: 10px;
+  }
+  .cib-title .lang-warn {
+    color: var(--gold); text-transform: none; letter-spacing: normal;
+    font-size: 10px; margin-left: 6px; cursor: help;
+  }
+  .cib-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px 16px; }
+  .cib-grid > div { display: flex; flex-direction: column; gap: 2px; }
+  .cib-k { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-faint); }
+  .cib-v { font-size: 13px; color: var(--ink); font-weight: 500; }
+  .cib-desc {
+    margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line);
+    font-size: 12px; color: var(--ink-dim); font-style: italic; line-height: 1.5;
+  }
   .detail .kbig { font-family: var(--mono); font-size: 28px; font-weight: 700; margin-bottom: 4px; }
   .detail .kbig.down { color: var(--spirit); }
   .detail .kbig.up { color: var(--shot); }
@@ -560,15 +601,41 @@ function renderDetail(it, points) {
   const priceClass = "kbig" + (it.last_price != null ? "" : " none");
   const min = it.min_ever && it.min_ever.price;
   const max = it.max_ever && it.max_ever.price;
+  const info = it.card_info || {};
+  const hasImage = !!it.image_url;
+  const hasInfo = !!(info.hp || info.types || info.illustrator || info.rarity || info.setName);
+  const isPiso = it.price_source === "piso" || (it.finish_used && it.finish_used !== "auto");
 
   const badges = [];
   if (isFav) badges.push('<span class="badge" style="color:var(--gold);border-color:rgba(255,200,60,.35)">★ favorito</span>');
   if (it.state === "desafio") badges.push('<span class="badge warn">verificação pendente</span>');
   if (it.card_quality_found) badges.push(`<span class="badge">qualidade ${esc(it.card_quality_found)}</span>`);
   if (it.paused) badges.push('<span class="badge">pausado</span>');
+  if (isPiso) badges.push('<span class="badge" style="color:#d99a2b;border-color:rgba(217,154,43,.35)" title="Menor preço agregado da Liga. Confirme a qualidade antes de comprar.">piso · Liga</span>');
+
+  // Bloco de imagem: foto real da carta ou placeholder simples
+  const cardVisual = hasImage
+    ? `<div class="card-visual"><img src="${esc(it.image_url)}" alt="${esc(it.product_name || 'carta')}" loading="lazy" onerror="this.parentElement.classList.add('img-fail')"></div>`
+    : `<div class="card-visual placeholder"><div class="ph-icon">◆</div><div class="ph-txt">sem imagem</div></div>`;
+
+  // Bloco Info da carta (só se tem algo pra mostrar)
+  const infoBlock = hasInfo ? `
+    <div class="card-info-block">
+      <div class="cib-title">Info da carta ${info.lang === "en" ? '<span class="lang-warn" title="Comunidade TCGdex ainda não traduziu essa carta pra PT-BR.">(em inglês)</span>' : ''}</div>
+      <div class="cib-grid">
+        ${info.hp ? `<div><span class="cib-k">HP</span><span class="cib-v">${esc(info.hp)}</span></div>` : ""}
+        ${info.types && info.types.length ? `<div><span class="cib-k">Tipo</span><span class="cib-v">${esc(info.types.join(", "))}</span></div>` : ""}
+        ${info.rarity ? `<div><span class="cib-k">Raridade</span><span class="cib-v">${esc(info.rarity)}</span></div>` : ""}
+        ${info.setName ? `<div><span class="cib-k">Set</span><span class="cib-v">${esc(info.setName)}</span></div>` : ""}
+        ${info.illustrator ? `<div><span class="cib-k">Ilustrador</span><span class="cib-v">${esc(info.illustrator)}</span></div>` : ""}
+      </div>
+      ${info.description ? `<div class="cib-desc">${esc(info.description)}</div>` : ""}
+    </div>` : "";
 
   const html = `
     <div class="detail">
+      ${cardVisual}
+
       <h1>${esc(it.product_name || it.url || "—")}</h1>
       <div class="d-meta">${esc(it.store_name || "")}${it.last_checked_at ? " · atualizado " + fmtRel(it.last_checked_at) : ""}</div>
       ${badges.length ? `<div class="badges" style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:14px">${badges.join("")}</div>` : ""}
@@ -601,6 +668,8 @@ function renderDetail(it, points) {
           </div>
         </div>
       ` : ""}
+
+      ${infoBlock}
 
       ${it.url ? `<a class="link-out" href="${esc(it.url)}" target="_blank" rel="noopener">Abrir na loja <span class="arrow">↗</span></a>` : ""}
     </div>`;

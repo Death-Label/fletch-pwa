@@ -613,10 +613,11 @@ function renderDetail(it, points) {
   if (it.paused) badges.push('<span class="badge">pausado</span>');
   if (isPiso) badges.push('<span class="badge" style="color:#d99a2b;border-color:rgba(217,154,43,.35)" title="Menor preço agregado da Liga. Confirme a qualidade antes de comprar.">piso · Liga</span>');
 
-  // Bloco de imagem: foto real da carta ou placeholder simples
+  // Bloco de imagem: só renderiza se existe URL. Se TCGdex não achou (produto,
+  // carta rara não catalogada), simplesmente não mostra caixa — decisão do usuário.
   const cardVisual = hasImage
     ? `<div class="card-visual"><img src="${esc(it.image_url)}" alt="${esc(it.product_name || 'carta')}" loading="lazy" onerror="this.parentElement.classList.add('img-fail')"></div>`
-    : `<div class="card-visual placeholder"><div class="ph-icon">◆</div><div class="ph-txt">sem imagem</div></div>`;
+    : "";
 
   // Bloco Info da carta (só se tem algo pra mostrar)
   const infoBlock = hasInfo ? `

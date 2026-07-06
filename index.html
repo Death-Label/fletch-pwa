@@ -429,6 +429,12 @@ function showPair() {
   $("#scr-list").classList.add("hidden");
   $("#scr-detail").classList.add("hidden");
   $("#btn-back").classList.add("hidden");
+  // Registra a tela atual como estado inicial no history (sem empilhar entrada).
+  // Isso é o âncora do popstate: quando o usuário aperta voltar do Android
+  // vindo do detalhe, o popstate vê esse estado e volta pra tela certa.
+  if (!history.state || history.state.screen !== "pair") {
+    history.replaceState({ screen: "pair" }, "");
+  }
   $("#sub-info").textContent = "";
   $("#pair-err").textContent = "";
   $("#pair-code").value = "";
@@ -487,6 +493,10 @@ function showList() {
   $("#scr-list").classList.remove("hidden");
   $("#scr-detail").classList.add("hidden");
   $("#btn-back").classList.add("hidden");
+  // Âncora do history: se não tá em estado list, marca. Sem push (evita empilhar).
+  if (!history.state || history.state.screen !== "list") {
+    history.replaceState({ screen: "list" }, "");
+  }
   renderList();
 }
 
@@ -575,6 +585,15 @@ async function openDetail(itemId) {
   const it = state.items.find((x) => x.id === itemId);
   if (!it) return;
   state.currentItemId = itemId;
+
+  // Registra uma entrada no histórico do navegador. Isso é o que faz o botão
+  // "voltar" do Android voltar pra lista ao invés de fechar o PWA.
+  // Só faz push se ainda não está no estado detail (evita empilhar entradas
+  // quando openDetail é chamado múltiplas vezes, ex. ao mudar range do gráfico).
+  const cur = history.state;
+  if (!cur || cur.screen !== "detail" || cur.id !== itemId) {
+    history.pushState({ screen: "detail", id: itemId }, "");
+  }
 
   $("#scr-pair").classList.add("hidden");
   $("#scr-list").classList.add("hidden");
@@ -744,8 +763,37 @@ function renderChart(points) {
 // Botões globais
 // ============================================================================
 $("#btn-back").addEventListener("click", () => {
-  state.currentItemId = null;
-  showList();
+  // Delega pro history — dispara popstate que chama showList().
+  // Assim o clique no botão "‹" e o botão voltar do Android têm exatamente
+  // o mesmo efeito, mantendo o histórico consistente.
+  history.back();
+});
+
+// Listener global do botão "voltar" do sistema (Android) e gestos de swipe.
+// Sem isso, apertar voltar no aparelho fecha o PWA em vez de voltar de tela.
+window.addEventListener("popstate", (e) => {
+  const st = e.state || { screen: "list" };
+  if (st.screen === "detail" && st.id) {
+    // Usuário navegou "pra frente" (raro, via gesto). Reabre detalhe sem pushState.
+    const it = state.items.find((x) => x.id === st.id);
+    if (it) {
+      state.currentItemId = st.id;
+      $("#scr-pair").classList.add("hidden");
+      $("#scr-list").classList.add("hidden");
+      $("#scr-detail").classList.remove("hidden");
+      $("#btn-back").classList.remove("hidden");
+      renderDetail(it, null);
+      loadHistory(st.id).then((points) => renderDetail(it, points));
+    } else {
+      showList();
+    }
+  } else if (st.screen === "pair") {
+    showPair();
+  } else {
+    // Default: lista
+    state.currentItemId = null;
+    showList();
+  }
 });
 
 $("#btn-refresh").addEventListener("click", () => loadList(false));

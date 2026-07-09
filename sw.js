@@ -5,7 +5,7 @@
 // deixava chegar novas versões — bug que travou o rollout da feature TCGdex).
 // Dados dinâmicos (chamadas ao Supabase) vão sempre pela rede.
 
-const CACHE = "fletch-pwa-v6";
+const CACHE = "fletch-pwa-v7";
 const SHELL = ["./", "./index.html", "./manifest.json", "./icons/icon-192.png", "./icons/icon-512.png"];
 
 self.addEventListener("install", (e) => {
